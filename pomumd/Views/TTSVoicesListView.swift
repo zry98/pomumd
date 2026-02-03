@@ -3,25 +3,19 @@ import SwiftUI
 
 struct TTSVoicesListView: View {
   @Binding var defaultTTSVoice: String
+  @State private var voices: [Voice] = []
+  @State private var sortedVoices: [Voice] = []
   private let previewSynthesizer = AVSpeechSynthesizer()
 
   var body: some View {
     List {
-      let voices = TTSService().getAvailableVoices().sorted { v1, v2 in
-        if v1.language != v2.language {
-          return v1.language.localizedCaseInsensitiveCompare(v2.language) == .orderedAscending
-        }
-        return v1.name.localizedCaseInsensitiveCompare(v2.name) == .orderedAscending
-      }
-
-      ForEach(voices, id: \.self.id) { voice in
+      ForEach(sortedVoices, id: \.self.id) { voice in
         HStack {
           VStack(alignment: .leading, spacing: 4) {
             Text("\(Locale.current.localizedString(forIdentifier: voice.language) ?? voice.language) • \(voice.name)")
             Text(voice.id)
               .font(.caption)
               .foregroundColor(.secondary)
-              .lineLimit(1)
           }
 
           Spacer()
@@ -40,7 +34,23 @@ struct TTSVoicesListView: View {
       }
     }
     .navigationTitle("TTS Voices")
-    .navigationBarTitleDisplayMode(.inline)
+    .inlineNavigationBarTitle()
+    .onAppear {
+      voices = TTSService.getAvailableVoices()
+      updateSortedVoices()
+    }
+    .onChange(of: voices) { _ in
+      updateSortedVoices()
+    }
+  }
+
+  private func updateSortedVoices() {
+    sortedVoices = voices.sorted { v1, v2 in
+      if v1.language != v2.language {
+        return v1.language.localizedCaseInsensitiveCompare(v2.language) == .orderedAscending
+      }
+      return v1.name.localizedCaseInsensitiveCompare(v2.name) == .orderedAscending
+    }
   }
 
   private func playVoiceSample(_ voice: Voice) {

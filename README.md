@@ -1,6 +1,8 @@
-# Wyoming iOS
+# PomumD
 
-[Wyoming Protocol](https://github.com/OHF-Voice/wyoming) text-to-speech (TTS) and speech-to-text (STT) using iOS AVFoundation and Speech frameworks.
+[Wyoming Protocol](https://github.com/OHF-Voice/wyoming) text-to-speech (TTS) and speech-to-text (STT) server using iOS AVFoundation and Speech frameworks.
+
+Runs on iOS/iPadOS 16.0+, macOS 11.0+, and visionOS 1.0+ devices.
 
 ## Text-to-Speech
 
@@ -11,7 +13,7 @@
 
 ## Speech-to-Text
 
-- For iOS 26.0+: [SpeechTranscriber](https://developer.apple.com/documentation/speech/speechtranscriber) of Speech framework.
+- For iOS/iPadOS/macOS/visionOS 26.0+: [SpeechTranscriber](https://developer.apple.com/documentation/speech/speechtranscriber) of Speech framework.
 - For others: [SFSpeechRecognizer](https://developer.apple.com/documentation/speech/sfspeechrecognizer).
 
 ## Screenshot

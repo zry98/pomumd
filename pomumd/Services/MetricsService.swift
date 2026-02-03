@@ -1,0 +1,266 @@
+import Darwin
+import Foundation
+import Metrics
+import Prometheus
+
+struct MetricsService {
+  struct Configuration {
+    let prometheusRegistry: PrometheusCollectorRegistry
+    let metricsCollector: MetricsCollector
+  }
+
+  static func bootstrap() -> Configuration {
+    let prometheusRegistry = PrometheusCollectorRegistry()
+
+    var metricsFactory = PrometheusMetricsFactory(registry: prometheusRegistry)
+    metricsFactory.defaultDurationHistogramBuckets = [
+      .milliseconds(50),
+      .milliseconds(100),
+      .milliseconds(250),
+      .milliseconds(500),
+      .seconds(1),
+      .seconds(2),
+      .seconds(5),
+    ]
+
+    MetricsSystem.bootstrap(metricsFactory)
+
+    let metricsCollector = MetricsCollector()
+    return Configuration(
+      prometheusRegistry: prometheusRegistry,
+      metricsCollector: metricsCollector
+    )
+  }
+}
+
+actor MetricsCollector {
+  private let namespace =
+    (Bundle.main.infoDictionary?["CFBundleName"] as? String
+    ?? Bundle.main.infoDictionary?["CFBundleExecutable"] as? String
+    ?? "pomumd")
+    .replacingOccurrences(of: "-", with: "_")
+    .replacingOccurrences(of: " ", with: "_")
+    .lowercased()
+
+  // application metrics
+  private let activeConnectionsGauge: Metrics.Gauge
+  private let totalConnectionsCounter: Metrics.Counter
+  private let errorCounter: Metrics.Counter
+  private let audioBytesCounter: Metrics.Counter
+  private let ttsModelProcessingTimer: Metrics.Timer
+  private let sttModelProcessingTimer: Metrics.Timer
+  private let ttsServiceProcessingTimer: Metrics.Timer
+  private let sttServiceProcessingTimer: Metrics.Timer
+  private let restartCounter: Metrics.Counter
+  private let networkBytesInCounter: Metrics.Counter
+  private let networkBytesOutCounter: Metrics.Counter
+  private var activeConnections = 0
+
+  // hardware metrics
+  private let cpuUsageTotalGauge: Metrics.Gauge
+  private let thermalStateGauge: Metrics.Gauge
+  private let memoryTotalGauge: Metrics.Gauge
+  private let memoryFreeGauge: Metrics.Gauge
+  private let memoryAppUsedGauge: Metrics.Gauge
+
+  init() {
+    self.cpuUsageTotalGauge = Gauge(label: "\(namespace)_cpu_usage_total_percent")
+    self.thermalStateGauge = Gauge(label: "\(namespace)_thermal_state")
+    self.memoryTotalGauge = Gauge(label: "\(namespace)_memory_total_bytes")
+    self.memoryFreeGauge = Gauge(label: "\(namespace)_memory_free_bytes")
+    self.memoryAppUsedGauge = Gauge(label: "\(namespace)_memory_app_used_bytes")
+
+    self.activeConnectionsGauge = Gauge(label: "\(namespace)_connections_active")
+    self.totalConnectionsCounter = Counter(label: "\(namespace)_connections_total")
+    self.errorCounter = Counter(label: "\(namespace)_connections_errors_total")
+    self.audioBytesCounter = Counter(label: "\(namespace)_audio_bytes_processed_total")
+    self.ttsModelProcessingTimer = Timer(
+      label: "\(namespace)_model_processing_duration_milliseconds", dimensions: [("service", "tts")])
+    self.sttModelProcessingTimer = Timer(
+      label: "\(namespace)_model_processing_duration_milliseconds", dimensions: [("service", "stt")])
+    self.ttsServiceProcessingTimer = Timer(
+      label: "\(namespace)_service_processing_duration_milliseconds", dimensions: [("service", "tts")])
+    self.sttServiceProcessingTimer = Timer(
+      label: "\(namespace)_service_processing_duration_milliseconds", dimensions: [("service", "stt")])
+    self.restartCounter = Counter(label: "\(namespace)_restarts_total")
+    self.networkBytesInCounter = Counter(label: "\(namespace)_network_bytes_received_total")
+    self.networkBytesOutCounter = Counter(label: "\(namespace)_network_bytes_sent_total")
+  }
+
+  func recordServerRestart() {
+    restartCounter.increment()
+  }
+
+  func recordConnection(active: Bool) {
+    if active {
+      activeConnections += 1
+      activeConnectionsGauge.record(activeConnections)
+      totalConnectionsCounter.increment()
+    } else {
+      activeConnections = max(0, activeConnections - 1)
+      activeConnectionsGauge.record(activeConnections)
+    }
+  }
+
+  func recordConnectionError() {
+    errorCounter.increment()
+  }
+
+  func recordModelProcessing(bytes: Int, duration: TimeInterval, serviceType: ServiceType) {
+    audioBytesCounter.increment(by: bytes)
+    if duration > 0 {
+      let milliseconds = Int64(duration * 1000)
+      switch serviceType {
+      case .tts:
+        ttsModelProcessingTimer.recordMilliseconds(milliseconds)
+      case .stt:
+        sttModelProcessingTimer.recordMilliseconds(milliseconds)
+      case .info, .unknown:
+        break
+      }
+    }
+  }
+
+  func recordServiceProcessing(duration: TimeInterval, serviceType: ServiceType) {
+    if duration > 0 {
+      let milliseconds = Int64(duration * 1000)
+      switch serviceType {
+      case .tts:
+        ttsServiceProcessingTimer.recordMilliseconds(milliseconds)
+      case .stt:
+        sttServiceProcessingTimer.recordMilliseconds(milliseconds)
+      case .info, .unknown:
+        break
+      }
+    }
+  }
+
+  func recordNetworkTraffic(bytesIn: UInt64, bytesOut: UInt64) {
+    networkBytesInCounter.increment(by: bytesIn)
+    networkBytesOutCounter.increment(by: bytesOut)
+  }
+
+  func updateHardwareMetrics() async {
+    let snapshot = await MainActor.run {
+      HardwareMetrics.getSnapshot()
+    }
+
+    cpuUsageTotalGauge.record(snapshot.cpuUsageTotal)
+    thermalStateGauge.record(snapshot.thermalState)
+    memoryTotalGauge.record(snapshot.memoryTotal)
+    memoryFreeGauge.record(snapshot.memoryFree)
+    memoryAppUsedGauge.record(snapshot.memoryAppUsed)
+  }
+}
+
+struct HardwareMetrics {
+  let cpuUsageTotal: Float32
+  let thermalState: UInt8
+  let memoryTotal: UInt64
+  let memoryAppUsed: UInt64
+  let memoryFree: UInt64
+
+  static func getSnapshot() -> HardwareMetrics {
+    let cpu = getCPUUsage()
+    let thermalState = UInt8(ProcessInfo.processInfo.thermalState.rawValue)
+    let memory = getMemoryInfo()
+
+    return HardwareMetrics(
+      cpuUsageTotal: cpu,
+      thermalState: thermalState,
+      memoryTotal: memory.total,
+      memoryAppUsed: memory.appUsed,
+      memoryFree: memory.free,
+    )
+  }
+
+  private static func getCPUUsage() -> Float32 {
+    var numCPUs: natural_t = 0
+    var cpuInfo: processor_info_array_t?
+    var numCPUInfo: mach_msg_type_number_t = 0
+
+    let result = host_processor_info(
+      mach_host_self(),
+      PROCESSOR_CPU_LOAD_INFO,
+      &numCPUs,
+      &cpuInfo,
+      &numCPUInfo)
+
+    guard result == KERN_SUCCESS, let cpuInfo = cpuInfo else {
+      return 0.0
+    }
+
+    var totalUser: UInt32 = 0
+    var totalSystem: UInt32 = 0
+    var totalIdle: UInt32 = 0
+    var totalNice: UInt32 = 0
+
+    for i in 0..<Int(numCPUs) {
+      let offset = Int(CPU_STATE_MAX) * i
+      let user = cpuInfo[offset + Int(CPU_STATE_USER)]
+      let system = cpuInfo[offset + Int(CPU_STATE_SYSTEM)]
+      let idle = cpuInfo[offset + Int(CPU_STATE_IDLE)]
+      let nice = cpuInfo[offset + Int(CPU_STATE_NICE)]
+
+      totalUser += UInt32(user)
+      totalSystem += UInt32(system)
+      totalIdle += UInt32(idle)
+      totalNice += UInt32(nice)
+    }
+
+    let totalTicks = totalUser + totalSystem + totalIdle + totalNice
+    let totalUsage = totalTicks > 0 ? Float32(totalUser + totalSystem + totalNice) / Float32(totalTicks) * 100.0 : 0.0
+
+    vm_deallocate(
+      mach_task_self_,
+      vm_address_t(bitPattern: cpuInfo),
+      vm_size_t(numCPUInfo) * vm_size_t(MemoryLayout<integer_t>.size))
+
+    return totalUsage
+  }
+
+  private static func getMemoryInfo() -> (total: UInt64, appUsed: UInt64, free: UInt64) {
+    let total = ProcessInfo.processInfo.physicalMemory
+
+    // system
+    var statsCount = mach_msg_type_number_t(
+      MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+    var stats = vm_statistics64()
+    let kr = withUnsafeMutablePointer(to: &stats) { ptr -> kern_return_t in
+      ptr.withMemoryRebound(to: integer_t.self, capacity: Int(statsCount)) { intPtr in
+        host_statistics64(mach_host_self(), HOST_VM_INFO64, intPtr, &statsCount)
+      }
+    }
+    guard kr == KERN_SUCCESS else {
+      metricsLogger.error("Failed to get system memory usage: ret=\(kr)")
+      return (total: total, appUsed: 0, free: total)
+    }
+
+    let pageSize = UInt64(Darwin.vm_kernel_page_size)
+    let active = UInt64(stats.active_count) * pageSize
+    let speculative = UInt64(stats.speculative_count) * pageSize
+    let inactive = UInt64(stats.inactive_count) * pageSize
+    let wired = UInt64(stats.wire_count) * pageSize
+    let compressed = UInt64(stats.compressor_page_count) * pageSize
+    let purgeable = UInt64(stats.purgeable_count) * pageSize
+    let external = UInt64(stats.external_page_count) * pageSize
+
+    let used = active + inactive + speculative + wired + compressed - purgeable - external
+    let free = total - used
+
+    // app
+    var infoCount = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.stride / MemoryLayout<integer_t>.stride)
+    var info = task_vm_info()
+    let kr2 = withUnsafeMutablePointer(to: &info) { ptr -> kern_return_t in
+      ptr.withMemoryRebound(to: integer_t.self, capacity: Int(infoCount)) { intPtr in
+        task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), intPtr, &infoCount)
+      }
+    }
+    guard kr2 == KERN_SUCCESS else {
+      metricsLogger.error("Failed to get app memory usage: ret=\(kr2)")
+      return (total: total, appUsed: 0, free: free)
+    }
+
+    return (total: total, appUsed: info.phys_footprint, free: free)
+  }
+}

@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-struct Voice: Identifiable {
+struct Voice: Identifiable, Codable, Equatable {
   let id: String
   let name: String
   let language: String
@@ -14,6 +14,7 @@ struct Voice: Identifiable {
     self.quality = quality
   }
 
+  /// Creates a Voice from an AVSpeechSynthesisVoice
   init(from avVoice: AVSpeechSynthesisVoice) {
     self.id = avVoice.identifier
     self.name = avVoice.name
@@ -29,13 +30,5 @@ struct Voice: Identifiable {
     @unknown default:
       self.quality = "Unknown"
     }
-  }
-
-  func toWyomingDict() -> [String: Any] {
-    return [
-      "name": id,
-      "description": name,
-      "languages": [language],
-    ]
   }
 }
