@@ -7,6 +7,7 @@ import Speech
 class ServerManager: ObservableObject {
   let httpServer: HTTPServer
   let wyomingServer: WyomingServer
+  let bonjourService: BonjourService
   static let httpServerPort: UInt16 = 10100
   static let wyomingServerPort: UInt16 = 10200
 
@@ -37,6 +38,8 @@ class ServerManager: ObservableObject {
       settingsManager: settingsManager,
     )
 
+    self.bonjourService = BonjourService(port: Self.wyomingServerPort)
+
     self.settingsManager = settingsManager
 
     // forward changes from nested ObservableObjects to trigger SwiftUI view updates
@@ -45,6 +48,10 @@ class ServerManager: ObservableObject {
     }.store(in: &cancellables)
 
     httpServer.objectWillChange.sink { [weak self] _ in
+      self?.objectWillChange.send()
+    }.store(in: &cancellables)
+
+    bonjourService.objectWillChange.sink { [weak self] _ in
       self?.objectWillChange.send()
     }.store(in: &cancellables)
   }
@@ -56,6 +63,9 @@ class ServerManager: ObservableObject {
     ].compactMap { $0 }
 
     errorMessage = errors.isEmpty ? nil : errors.joined(separator: "\n")
+    if errors.isEmpty {
+      bonjourService.publish()
+    }
   }
 
   private func startServer(name: String, port: UInt16, start: () throws -> Void) -> String? {
@@ -71,6 +81,7 @@ class ServerManager: ObservableObject {
   }
 
   func stopServers() {
+    bonjourService.unpublish()
     wyomingServer.stop()
     httpServer.stop()
     wyomingServerLogger.notice("Servers stopped")

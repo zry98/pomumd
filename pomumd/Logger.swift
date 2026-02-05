@@ -53,6 +53,8 @@ let metricsLogger = Logger(subsystem: subsystem, category: "metrics")
 
 let appLogger = Logger(subsystem: subsystem, category: "app")
 
+let bonjourLogger = Logger(subsystem: subsystem, category: "bonjour")
+
 @available(iOS 15.0, *)
 enum LogStoreAccess {
   static func retrieveLogs(since: Date? = nil, maxCount: Int = 5000) throws -> [OSLogEntryLog] {
