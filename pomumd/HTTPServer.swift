@@ -80,12 +80,7 @@ class HTTPServer: ObservableObject {
         return self?.serverUnavailableResponse() ?? HTTPResponse()
       }
 
-      let sema = DispatchSemaphore(value: 0)
-      Task {
-        await self.metricsCollector.updateHardwareMetrics()
-        sema.signal()
-      }
-      sema.wait()
+      self.metricsCollector.updateHardwareMetrics()
 
       var buf: [UInt8] = []
       self.prometheusRegistry.emit(into: &buf)

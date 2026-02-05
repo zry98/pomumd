@@ -303,13 +303,11 @@ class TTSService {
             hasResumed = true
 
             let duration = Date().timeIntervalSince(startTime)
-            Task {
-              await self.metricsCollector.recordModelProcessing(
-                bytes: totalBytes,
-                duration: duration,
-                serviceType: .tts
-              )
-            }
+            self.metricsCollector.recordModelProcessing(
+              bytes: totalBytes,
+              duration: duration,
+              serviceType: .tts
+            )
 
             ttsLogger.info(
               "Synthesis complete: \(bufferCount) buffers, \(totalBytes) bytes in \(String(format: "%.3f", duration))s")

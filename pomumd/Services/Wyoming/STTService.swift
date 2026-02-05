@@ -96,7 +96,7 @@ class STTService {
     }
 
     let duration = Date().timeIntervalSince(startTime)
-    await metricsCollector.recordModelProcessing(
+    metricsCollector.recordModelProcessing(
       bytes: audioBytes,
       duration: duration,
       serviceType: .stt

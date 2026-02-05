@@ -33,7 +33,7 @@ struct MetricsService {
   }
 }
 
-actor MetricsCollector {
+class MetricsCollector {
   private let namespace =
     (Bundle.main.infoDictionary?["CFBundleName"] as? String
     ?? Bundle.main.infoDictionary?["CFBundleExecutable"] as? String
@@ -44,6 +44,8 @@ actor MetricsCollector {
 
   // application metrics
   private let totalConnectionsCounter: Metrics.Counter
+  private let activeConnectionsGauge: Metrics.Gauge
+  private var activeConnectionsCount: Int = 0
   private let errorCounter: Metrics.Counter
   private let audioBytesCounter: Metrics.Counter
   private let ttsModelProcessingTimer: Metrics.Timer
@@ -69,6 +71,7 @@ actor MetricsCollector {
     self.memoryAppUsedGauge = Gauge(label: "\(namespace)_memory_app_used_bytes")
 
     self.totalConnectionsCounter = Counter(label: "\(namespace)_connections_total")
+    self.activeConnectionsGauge = Gauge(label: "\(namespace)_connections_active")
     self.errorCounter = Counter(label: "\(namespace)_connections_errors_total")
     self.audioBytesCounter = Counter(label: "\(namespace)_audio_bytes_processed_total")
     self.ttsModelProcessingTimer = Timer(
@@ -90,6 +93,16 @@ actor MetricsCollector {
 
   func recordConnection() {
     totalConnectionsCounter.increment()
+  }
+
+  func incrementActiveConnections() {
+    activeConnectionsCount += 1
+    activeConnectionsGauge.record(activeConnectionsCount)
+  }
+
+  func decrementActiveConnections() {
+    activeConnectionsCount -= 1
+    activeConnectionsGauge.record(activeConnectionsCount)
   }
 
   func recordConnectionError() {
@@ -130,10 +143,8 @@ actor MetricsCollector {
     networkBytesOutCounter.increment(by: bytesOut)
   }
 
-  func updateHardwareMetrics() async {
-    let snapshot = await MainActor.run {
-      HardwareMetrics.getSnapshot()
-    }
+  func updateHardwareMetrics() {
+    let snapshot = HardwareMetrics.getSnapshot()
 
     cpuUsageTotalGauge.record(snapshot.cpuUsageTotal)
     thermalStateGauge.record(snapshot.thermalState)

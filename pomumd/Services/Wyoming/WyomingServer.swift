@@ -45,9 +45,7 @@ class WyomingServer: ObservableObject {
         case .failed(let error):
           wyomingServerLogger.error("Wyoming server failed: \(error)")
           self?.isRunning = false
-          Task {
-            await self?.metricsCollector.recordConnectionError()
-          }
+          self?.metricsCollector.recordConnectionError()
         case .cancelled:
           self?.isRunning = false
         default:
@@ -97,7 +95,9 @@ class ConnectionHandler {
   private let metricsCollector: MetricsCollector
   private let settingsManager: SettingsManager
   private lazy var ttsService: TTSService = TTSService(
-    metricsCollector: metricsCollector, settingsManager: settingsManager)
+    metricsCollector: metricsCollector,
+    settingsManager: settingsManager,
+  )
   private lazy var sttService: STTService = STTService(metricsCollector: metricsCollector)
 
   private var receiveBuffer = Data()
@@ -130,9 +130,7 @@ class ConnectionHandler {
       return try T.fromMessage(message)
     } catch {
       wyomingServerLogger.error("Failed to parse \(T.self): \(error)")
-      Task {
-        await metricsCollector.recordConnectionError()
-      }
+      metricsCollector.recordConnectionError()
       return nil
     }
   }
@@ -178,7 +176,7 @@ class ConnectionHandler {
     sendAudioChunk(audioData, format: audioFormat)
   }
 
-  /// quick check if text looks like SSML (for streaming detection)
+  /// Quick check if text looks like SSML (for streaming detection),
   /// just checks prefix and closing tag, doesn't validate XML structure
   private func looksLikeSSML(_ text: String) -> Bool {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -200,17 +198,14 @@ class ConnectionHandler {
     self.settingsManager = settingsManager
     self.wyomingProtocol = WyomingProtocol()
 
-    Task {
-      await metricsCollector.recordConnection()
-    }
+    metricsCollector.recordConnection()
+    metricsCollector.incrementActiveConnections()
   }
 
   private func sendData(_ data: Data) {
     connection.send(content: data, completion: .contentProcessed { _ in })
 
-    Task {
-      await metricsCollector.recordNetworkTraffic(bytesIn: 0, bytesOut: UInt64(data.count))
-    }
+    metricsCollector.recordNetworkTraffic(bytesIn: 0, bytesOut: UInt64(data.count))
   }
 
   func start() {
@@ -233,11 +228,8 @@ class ConnectionHandler {
     guard !isClosed else { return }
     isClosed = true
 
+    metricsCollector.decrementActiveConnections()
     connection.cancel()
-
-    Task {
-      await metricsCollector.recordConnection()
-    }
   }
 
   private func sendInfo() async {
@@ -258,9 +250,7 @@ class ConnectionHandler {
         self.receiveBuffer.append(data)
         networkLogger.debug("len(buffer)=\(self.receiveBuffer.count)")
 
-        Task {
-          await self.metricsCollector.recordNetworkTraffic(bytesIn: UInt64(data.count), bytesOut: 0)
-        }
+        self.metricsCollector.recordNetworkTraffic(bytesIn: UInt64(data.count), bytesOut: 0)
 
         self.processBuffer()
       }
@@ -351,9 +341,7 @@ class ConnectionHandler {
         wyomingServerLogger.debug("Sent audio stream")
       } catch {
         wyomingServerLogger.error("Synthesis error: \(error)")
-        Task {
-          await metricsCollector.recordConnectionError()
-        }
+        metricsCollector.recordConnectionError()
       }
     }
   }
@@ -437,9 +425,7 @@ class ConnectionHandler {
           )
         } catch {
           wyomingServerLogger.error("SSML chunk synthesis error: \(error)")
-          Task {
-            await metricsCollector.recordConnectionError()
-          }
+          metricsCollector.recordConnectionError()
         }
       }
 
@@ -472,9 +458,7 @@ class ConnectionHandler {
           }
         } catch {
           wyomingServerLogger.error("Sentence synthesis error: \(error)")
-          Task {
-            await metricsCollector.recordConnectionError()
-          }
+          metricsCollector.recordConnectionError()
         }
       }
     }
@@ -512,7 +496,7 @@ class ConnectionHandler {
           )
         } catch {
           wyomingServerLogger.error("Final synthesis error: \(error)")
-          await metricsCollector.recordConnectionError()
+          metricsCollector.recordConnectionError()
           hadError = true
         }
       }
@@ -521,7 +505,7 @@ class ConnectionHandler {
 
       if !hadError, let startTime = streamingTTSStartTime {
         let duration = Date().timeIntervalSince(startTime)
-        await metricsCollector.recordServiceProcessing(duration: duration, serviceType: .tts)
+        metricsCollector.recordServiceProcessing(duration: duration, serviceType: .tts)
         streamingTTSStartTime = nil
       }
 
@@ -551,9 +535,7 @@ class ConnectionHandler {
 
     if let startTime = nonStreamingTTSStartTime {
       let duration = Date().timeIntervalSince(startTime)
-      Task {
-        await metricsCollector.recordServiceProcessing(duration: duration, serviceType: .tts)
-      }
+      metricsCollector.recordServiceProcessing(duration: duration, serviceType: .tts)
       nonStreamingTTSStartTime = nil
     }
   }
@@ -641,12 +623,12 @@ class ConnectionHandler {
 
         if let startTime = sttStartTime {
           let duration = Date().timeIntervalSince(startTime)
-          await metricsCollector.recordServiceProcessing(duration: duration, serviceType: .stt)
+          metricsCollector.recordServiceProcessing(duration: duration, serviceType: .stt)
           sttStartTime = nil
         }
       } catch {
         wyomingServerLogger.error("Transcription error: \(error)")
-        await metricsCollector.recordConnectionError()
+        metricsCollector.recordConnectionError()
       }
     }
   }

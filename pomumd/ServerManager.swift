@@ -25,13 +25,16 @@ class ServerManager: ObservableObject {
     self.metricsCollector = metricsConfig.metricsCollector
 
     self.httpServer = HTTPServer(
-      port: Self.httpServerPort, metricsCollector: metricsCollector, registry: prometheusRegistry,
-      settingsManager: settingsManager)
+      port: Self.httpServerPort,
+      metricsCollector: metricsCollector,
+      registry: prometheusRegistry,
+      settingsManager: settingsManager,
+    )
 
     self.wyomingServer = WyomingServer(
       port: Self.wyomingServerPort,
       metricsCollector: metricsCollector,
-      settingsManager: settingsManager
+      settingsManager: settingsManager,
     )
 
     self.settingsManager = settingsManager
@@ -77,7 +80,7 @@ class ServerManager: ObservableObject {
     stopServers()
 
     Task { @MainActor in
-      await metricsCollector.recordServerRestart()
+      metricsCollector.recordServerRestart()
       try? await Task.sleep(for: .seconds(1))
       startServers()
     }
