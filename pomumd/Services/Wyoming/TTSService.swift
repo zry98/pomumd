@@ -284,7 +284,9 @@ class TTSService {
           guard let pcmBuffer = buffer as? AVAudioPCMBuffer else { return }
 
           bufferCount += 1
-          ttsLogger.debug("Received buffer #\(bufferCount): \(pcmBuffer.frameLength) frames")
+          #if DEBUG
+            ttsLogger.debug("Received buffer #\(bufferCount): \(pcmBuffer.frameLength) frames")
+          #endif
 
           if audioFormat == nil && pcmBuffer.frameLength > 0 {
             audioFormat = self.detectAudioFormat(from: pcmBuffer)
@@ -309,12 +311,14 @@ class TTSService {
 
             ttsLogger.info(
               "Synthesis complete: \(bufferCount) buffers, \(totalBytes) bytes in \(String(format: "%.3f", duration))s")
-            continuation.resume()
+            DispatchQueue.global(qos: .userInitiated).async {
+              continuation.resume()
+            }
           }
         })
 
       // if no empty buffer is received, wait for calculated timeout and return what we have
-      DispatchQueue.global().asyncAfter(deadline: .now() + calculatedTimeout) {
+      DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + calculatedTimeout) {
         if !hasResumed {
           hasResumed = true
           ttsLogger.notice("Synthesis timeout after \(String(format: "%.1f", calculatedTimeout))s")
