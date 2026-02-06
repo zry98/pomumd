@@ -165,6 +165,7 @@ struct ContentView: View {
         }
       #endif
     }
+    .statusBar(hidden: showBlackScreen)
   }
 
   private func restartServers() {
