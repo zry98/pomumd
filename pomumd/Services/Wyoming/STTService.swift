@@ -263,65 +263,11 @@ class STTService {
   }
 
   private func resampleAudio(buffer: AVAudioPCMBuffer, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-    guard let converter = AVAudioConverter(from: buffer.format, to: targetFormat) else {
-      sttLogger.error("Failed to create audio converter")
-      return nil
-    }
-
-    let inputFrameCount = buffer.frameLength
-    let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-    let outputFrameCapacity = AVAudioFrameCount(Double(inputFrameCount) * ratio)
-
-    guard
-      let outputBuffer = AVAudioPCMBuffer(
-        pcmFormat: targetFormat,
-        frameCapacity: outputFrameCapacity
-      )
-    else {
-      sttLogger.error("Failed to create output buffer")
-      return nil
-    }
-
-    var error: NSError?
-    let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
-      outStatus.pointee = .haveData
-      return buffer
-    }
-
-    let status = converter.convert(to: outputBuffer, error: &error, withInputFrom: inputBlock)
-    if status == .error {
-      sttLogger.error("Conversion error: \(error?.localizedDescription ?? "unknown")")
-      return nil
-    }
-
-    return outputBuffer
+    return try? AudioBufferConverter.resample(buffer, to: targetFormat)
   }
 
   private func createPCMBuffer(from data: Data, format: AVAudioFormat) -> AVAudioPCMBuffer? {
-    let frameCount = data.count / 2
-
-    guard
-      let buffer = AVAudioPCMBuffer(
-        pcmFormat: format,
-        frameCapacity: AVAudioFrameCount(frameCount)
-      )
-    else {
-      return nil
-    }
-
-    buffer.frameLength = AVAudioFrameCount(frameCount)
-
-    guard let channelData = buffer.int16ChannelData else {
-      return nil
-    }
-
-    data.withUnsafeBytes { rawBufferPointer in
-      guard let baseAddress = rawBufferPointer.baseAddress else { return }
-      let int16Pointer = baseAddress.assumingMemoryBound(to: Int16.self)
-      channelData[0].update(from: int16Pointer, count: frameCount)
-    }
-
-    return buffer
+    return try? AudioBufferConverter.convertToBuffer(from: data, format: format)
   }
 }
 

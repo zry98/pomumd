@@ -73,47 +73,7 @@ class TTSService {
   }
 
   private func convertBufferToData(_ buf: AVAudioPCMBuffer) -> Data? {
-    let channels = Int(buf.format.channelCount)
-    let frames = Int(buf.frameLength)
-
-    guard frames > 0 else {
-      ttsLogger.debug("Buffer has no frames")
-      return nil
-    }
-
-    var output = Data()
-
-    if let d = buf.int16ChannelData {
-      for f in 0..<frames {
-        for c in 0..<channels {
-          var v = d[c][f].littleEndian
-          output.append(Data(bytes: &v, count: MemoryLayout<Int16>.size))
-        }
-      }
-      return output
-    } else if let d = buf.int32ChannelData {
-      for f in 0..<frames {
-        for c in 0..<channels {
-          var v = d[c][f].littleEndian
-          output.append(Data(bytes: &v, count: MemoryLayout<Int32>.size))
-        }
-      }
-      return output
-    } else if let d = buf.floatChannelData {
-      for f in 0..<frames {
-        for c in 0..<channels {
-          let sample = d[c][f]
-          let clampedSample = max(-1.0, min(1.0, sample))
-          let int16Sample = Int16(clampedSample * Float(Int16.max))
-          var v = int16Sample.littleEndian
-          output.append(Data(bytes: &v, count: MemoryLayout<Int16>.size))
-        }
-      }
-      return output
-    } else {
-      ttsLogger.debug("Buffer has no valid channel data")
-      return nil
-    }
+    return try? AudioBufferConverter.convertToData(buf)
   }
 
   private func isValidSSML(_ text: String) -> Bool {
@@ -343,19 +303,9 @@ class TTSService {
   }
 
   private func detectAudioFormat(from buffer: AVAudioPCMBuffer) -> AudioFormat {
-    let format = buffer.format
-    let rate = UInt32(format.sampleRate)
-    let channels = UInt32(format.channelCount)
-
-    let width: UInt32
-    if format.commonFormat == .pcmFormatFloat32 {
-      width = 2  // Float32 converted to Int16
-    } else {
-      width = format.streamDescription.pointee.mBytesPerFrame / channels
-    }
-
-    ttsLogger.info("Audio format: \(rate) Hz, \(width) bytes/sample, \(channels) channel(s)")
-    return AudioFormat(rate: rate, width: width, channels: channels)
+    let audioFormat = AudioBufferConverter.detectFormat(from: buffer)
+    ttsLogger.info("Audio format: \(audioFormat.description)")
+    return audioFormat
   }
 
   func generateSilence(duration: TimeInterval, format: AudioFormat) -> Data {

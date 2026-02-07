@@ -18,4 +18,14 @@ struct AudioFormat: Codable, Equatable {
       interleaved: true
     )
   }
+
+  /// Validates that the audio format has valid parameters
+  var isValid: Bool {
+    return rate > 0 && channels > 0 && (width == 2 || width == 4)
+  }
+
+  /// Human-readable description of the audio format
+  var description: String {
+    return "\(rate) Hz, \(width) bytes/sample, \(channels) channel(s)"
+  }
 }

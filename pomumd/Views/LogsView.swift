@@ -1,8 +1,6 @@
 import OSLog
 import SwiftUI
 
-// MARK: - UI Extensions for LogLevel
-
 extension LogLevel {
   var color: Color {
     switch self {
@@ -15,25 +13,30 @@ extension LogLevel {
   }
 }
 
+/// Real-time log viewer with filtering and search.
 struct LogsView: View {
-  @State private var logs: [OSLogEntryLog] = []
+  @StateObject private var logManager = LogManager()
   @State private var filteredLogs: [OSLogEntryLog] = []
-  @State private var logIds: Set<TimeInterval> = []
   @State private var searchText = ""
   @State private var autoScroll = true
   @State private var isLoading = false
   @State private var errorMessage: String?
   @State private var minimumLevel: LogLevel = .info
-  @State private var lastFetchTime: Date?
-  @State private var refreshTimer: Timer?
 
+  /// Filters logs on background thread to avoid blocking UI.
   private func updateFilteredLogs() {
-    filteredLogs = logs.filter { entry in
-      let logLevel = LogLevel.from(entry.level)
-      let meetsLevelRequirement = logLevel.rawValue >= minimumLevel.rawValue
-      let meetsSearchRequirement =
-        searchText.isEmpty || entry.composedMessage.localizedCaseInsensitiveContains(searchText)
-      return meetsLevelRequirement && meetsSearchRequirement
+    Task.detached(priority: .userInitiated) {
+      let filtered = await logManager.logs.filter { entry in
+        let logLevel = LogLevel.from(entry.level)
+        let meetsLevelRequirement = logLevel.rawValue >= minimumLevel.rawValue
+        let meetsSearchRequirement =
+          searchText.isEmpty || entry.composedMessage.localizedCaseInsensitiveContains(searchText)
+        return meetsLevelRequirement && meetsSearchRequirement
+      }
+
+      await MainActor.run {
+        filteredLogs = filtered
+      }
     }
   }
 
@@ -89,64 +92,29 @@ struct LogsView: View {
           Image(systemName: autoScroll ? "arrow.down.circle.fill" : "arrow.down.circle")
         }
 
-        Button(action: { refreshLogs() }) {
+        Button(action: {
+          logManager.clearLogs()
+          logManager.startMonitoring(interval: 5.0)
+        }) {
           Image(systemName: "arrow.clockwise")
         }
-        .disabled(isLoading)
       }
     }
     .onAppear {
-      refreshLogs()
-      startAutoRefresh()
+      logManager.startMonitoring(interval: 5.0)
+      updateFilteredLogs()
     }
     .onDisappear {
-      refreshTimer?.invalidate()
-      refreshTimer = nil
+      logManager.stopMonitoring()
     }
-  }
-
-  private func refreshLogs() {
-    isLoading = true
-    errorMessage = nil
-
-    Task {
-      do {
-        let fetchTime = Date()
-        let retrievedLogs = try LogStoreAccess.retrieveLogs(since: lastFetchTime)
-
-        if lastFetchTime == nil {
-          logs = retrievedLogs
-          logIds = Set(retrievedLogs.map { $0.date.timeIntervalSince1970 })
-        } else {
-          let newLogs = retrievedLogs.filter { !logIds.contains($0.date.timeIntervalSince1970) }
-
-          if !newLogs.isEmpty {
-            logs.append(contentsOf: newLogs)
-            logIds.formUnion(newLogs.map { $0.date.timeIntervalSince1970 })
-
-            if logs.count > 10000 {
-              let removeCount = logs.count - 10000
-              let removedLogs = logs.prefix(removeCount)
-              logIds.subtract(removedLogs.map { $0.date.timeIntervalSince1970 })
-              logs.removeFirst(removeCount)
-            }
-          }
-        }
-
-        lastFetchTime = fetchTime
-        updateFilteredLogs()
-        isLoading = false
-      } catch {
-        errorMessage = error.localizedDescription
-        isLoading = false
-      }
+    .onChange(of: logManager.logs) { _ in
+      updateFilteredLogs()
     }
-  }
-
-  private func startAutoRefresh() {
-    refreshTimer?.invalidate()
-    refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-      refreshLogs()
+    .onChange(of: searchText) { _ in
+      updateFilteredLogs()
+    }
+    .onChange(of: minimumLevel) { _ in
+      updateFilteredLogs()
     }
   }
 }

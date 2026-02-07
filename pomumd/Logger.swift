@@ -120,6 +120,7 @@ enum LogStoreAccess {
     let position = store.position(date: startTime)
 
     var logs: [OSLogEntryLog] = []
+    logs.reserveCapacity(maxCount) // Pre-allocate capacity for better performance
     let entries = try store.getEntries(at: position)
 
     for entry in entries {

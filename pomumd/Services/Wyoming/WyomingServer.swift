@@ -100,22 +100,11 @@ class ConnectionHandler {
   private lazy var sttService: STTService = STTService(metricsCollector: metricsCollector)
 
   private var receiveBuffer = Data()
-  private var isTranscribing = false
 
-  private var audioBuffer = Data()
-  private var transcribeLanguage: String?
-  private var audioSampleRate: UInt32 = 16000
-  private var audioChannels: UInt32 = 1
-  private var audioWidth: UInt32 = 2
-
-  // TTS streaming state
-  private var isSynthesizingStreaming = false
-  private var synthesizeTextBuffer = ""
-  private var synthesizeVoiceIdentifier: String?
-  private var hasStartedAudioStream = false
-  private var pendingSynthesisTask: Task<Void, Never>?
-  private var currentAudioFormat: AudioFormat?
-  private var isSSMLMode = false
+  // State machines for TTS and STT
+  private var ttsState = TTSStreamingState.idle
+  private var sttState = STTState.idle
+  private var activeTasks: [TTSStreamingState.TaskIdentifier: Task<Void, Never>] = [:]
 
   private var streamingTTSStartTime: Date?
   private var nonStreamingTTSStartTime: Date?
@@ -157,22 +146,8 @@ class ConnectionHandler {
     sendData(data)
   }
 
-  /// Reset streaming synthesis state
-  private func resetStreamingState() {
-    isSynthesizingStreaming = false
-    synthesizeTextBuffer = ""
-    synthesizeVoiceIdentifier = nil
-    hasStartedAudioStream = false
-    pendingSynthesisTask = nil
-    currentAudioFormat = nil
-    isSSMLMode = false
-  }
-
   /// Process audio buffer from streaming synthesis callback
   private func processStreamingAudioBuffer(audioData: Data, audioFormat: AudioFormat) {
-    if currentAudioFormat == nil {
-      currentAudioFormat = audioFormat
-    }
     sendAudioChunk(audioData, format: audioFormat)
   }
 
@@ -316,7 +291,7 @@ class ConnectionHandler {
     wyomingServerLogger.debug("handleSynthesize called")
 
     // ignore non-streaming synthesize events if streaming is active
-    if isSynthesizingStreaming {
+    if ttsState.isStreaming {
       return
     }
 
@@ -356,20 +331,14 @@ class ConnectionHandler {
     let voiceIdentifier = extractVoiceIdentifier(from: synthesizeStartEvent.voice)
 
     streamingTTSStartTime = Date()
-    isSynthesizingStreaming = true
-    synthesizeTextBuffer = ""
-    synthesizeVoiceIdentifier = voiceIdentifier
-    hasStartedAudioStream = false
-    pendingSynthesisTask = nil
-    currentAudioFormat = nil
-    isSSMLMode = false
+    ttsState.startStreaming(voiceIdentifier: voiceIdentifier)
     wyomingServerLogger.debug("Streaming synthesis started")
   }
 
   private func handleSynthesizeChunk(_ message: WyomingMessage) {
     wyomingServerLogger.debug("handleSynthesizeChunk called")
 
-    guard isSynthesizingStreaming else {
+    guard ttsState.isStreaming else {
       wyomingServerLogger.info("Not in streaming synthesis mode")
       return
     }
@@ -377,23 +346,32 @@ class ConnectionHandler {
       return
     }
 
-    synthesizeTextBuffer += synthesizeChunkEvent.text
-    wyomingServerLogger.debug(
-      "Added chunk to buffer: '\(synthesizeChunkEvent.text)' (total buffer: \(synthesizeTextBuffer.count) chars)")
+    ttsState.appendText(synthesizeChunkEvent.text)
 
-    if !isSSMLMode && looksLikeSSML(synthesizeTextBuffer) {
-      isSSMLMode = true
+    let currentBuffer = ttsState.context?.textBuffer ?? ""
+    wyomingServerLogger.debug(
+      "Added chunk to buffer: '\(synthesizeChunkEvent.text)' (total buffer: \(currentBuffer.count) chars)")
+
+    if let context = ttsState.context, !context.ssmlMode && looksLikeSSML(currentBuffer) {
+      ttsState.setSSMLMode(true)
       wyomingServerLogger.info("SSML detected in streaming buffer - will chunk by first-level nodes")
     }
 
-    pendingSynthesisTask = Task {
+    let taskId = TTSStreamingState.TaskIdentifier(id: UUID())
+    let task = Task {
       await processSentencesFromBuffer()
+      activeTasks.removeValue(forKey: taskId)
+      ttsState.setPendingTask(nil)
     }
+    activeTasks[taskId] = task
+    ttsState.setPendingTask(taskId)
   }
 
   private func processSentencesFromBuffer() async {
-    if isSSMLMode {
-      let trimmed = synthesizeTextBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let context = ttsState.context else { return }
+
+    if context.ssmlMode {
+      let trimmed = context.textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
       guard let speakEndRange = trimmed.range(of: "</speak>", options: .caseInsensitive) else {
         wyomingServerLogger.debug("SSML incomplete, waiting for more chunks")
         return
@@ -418,7 +396,7 @@ class ConnectionHandler {
         do {
           try await ttsService.synthesizeWithCallback(
             text: chunk,
-            voiceIdentifier: synthesizeVoiceIdentifier,
+            voiceIdentifier: context.voiceIdentifier,
             onAudioBuffer: { [weak self] audioData, audioFormat in
               self?.processStreamingAudioBuffer(audioData: audioData, audioFormat: audioFormat)
             }
@@ -430,29 +408,33 @@ class ConnectionHandler {
         }
       }
 
-      synthesizeTextBuffer = remainingText
-      if !synthesizeTextBuffer.isEmpty && !looksLikeSSML(synthesizeTextBuffer) {
-        isSSMLMode = false
+      ttsState.updateTextBuffer(remainingText)
+      if !remainingText.isEmpty && !looksLikeSSML(remainingText) {
+        ttsState.setSSMLMode(false)
         wyomingServerLogger.notice("Remaining text after SSML is plain text, switching to plain text mode")
-      } else if !synthesizeTextBuffer.isEmpty {
+      } else if !remainingText.isEmpty {
         wyomingServerLogger.debug("Remaining text after SSML looks like SSML, staying in SSML mode")
       }
     } else {
-      while let (sentence, remaining) = ttsService.extractCompleteSentence(from: synthesizeTextBuffer) {
+      // Process complete sentences from buffer
+      while true {
+        guard let currentContext = ttsState.context else { break }
+        guard let (sentence, remaining) = ttsService.extractCompleteSentence(from: currentContext.textBuffer) else { break }
+
         wyomingServerLogger.info("Synthesizing sentence: '\(sentence)'")
-        synthesizeTextBuffer = remaining
+        ttsState.updateTextBuffer(remaining)
 
         do {
           try await ttsService.synthesizeWithCallback(
             text: sentence,
-            voiceIdentifier: synthesizeVoiceIdentifier,
+            voiceIdentifier: currentContext.voiceIdentifier,
             onAudioBuffer: { [weak self] audioData, audioFormat in
               self?.processStreamingAudioBuffer(audioData: audioData, audioFormat: audioFormat)
             }
           )
 
           // add pause between sentences
-          if let format = currentAudioFormat, settingsManager.defaultTTSPause > 0 {
+          if let format = ttsState.context?.audioFormat, settingsManager.defaultTTSPause > 0 {
             let silence = ttsService.generateSilence(
               duration: TimeInterval(settingsManager.defaultTTSPause), format: format)
             sendAudioChunk(silence, format: format)
@@ -461,6 +443,7 @@ class ConnectionHandler {
           wyomingServerLogger.error("Sentence synthesis error: \(error)")
           metricsCollector.recordConnectionError()
           close()
+          break
         }
       }
     }
@@ -469,29 +452,38 @@ class ConnectionHandler {
   private func handleSynthesizeStop(_ message: WyomingMessage) {
     wyomingServerLogger.debug("handleSynthesizeStop called")
 
-    guard isSynthesizingStreaming else {
+    // Check state using new state machine
+    guard ttsState.isStreaming else {
       wyomingServerLogger.info("Not in streaming synthesis mode")
       return
     }
+
     guard parseEvent(message, as: SynthesizeStopEvent.self) != nil else {
       return
     }
 
     Task {
-      await pendingSynthesisTask?.value
-      wyomingServerLogger.debug("Pending synthesis task completed")
+      // Wait for any pending processing task to complete
+      if let context = ttsState.context, let taskId = context.pendingTask {
+        wyomingServerLogger.debug("Waiting for pending processing task to complete")
+        await activeTasks[taskId]?.value
+        activeTasks.removeValue(forKey: taskId)
+        ttsState.setPendingTask(nil)
+      }
+
+      wyomingServerLogger.debug("Processing final synthesis buffer")
 
       var hadError = false
-      if !synthesizeTextBuffer.isEmpty {
-        if isSSMLMode {
-          wyomingServerLogger.info("Synthesizing complete SSML document: '\(synthesizeTextBuffer)'")
+      if let context = ttsState.context, !context.textBuffer.isEmpty {
+        if context.ssmlMode {
+          wyomingServerLogger.info("Synthesizing complete SSML document: '\(context.textBuffer)'")
         } else {
-          wyomingServerLogger.info("Synthesizing remaining text: '\(synthesizeTextBuffer)'")
+          wyomingServerLogger.info("Synthesizing remaining text: '\(context.textBuffer)'")
         }
         do {
           try await ttsService.synthesizeWithCallback(
-            text: synthesizeTextBuffer,
-            voiceIdentifier: synthesizeVoiceIdentifier,
+            text: context.textBuffer,
+            voiceIdentifier: context.voiceIdentifier,
             onAudioBuffer: { [weak self] audioData, audioFormat in
               self?.sendAudioChunk(audioData, format: audioFormat)
             }
@@ -511,7 +503,8 @@ class ConnectionHandler {
         streamingTTSStartTime = nil
       }
 
-      resetStreamingState()
+      // Reset using new state machine
+      ttsState.reset()
 
       if hadError {
         close()
@@ -554,17 +547,13 @@ class ConnectionHandler {
     }
 
     if let language = transcribeEvent.language {
-      transcribeLanguage = language
       wyomingServerLogger.info("Specified language: '\(language)'")
     } else {
-      transcribeLanguage = nil
       wyomingServerLogger.info("No language specified, using default")
     }
 
     sttStartTime = Date()
-
-    isTranscribing = true
-    audioBuffer = Data()
+    sttState.startTranscription(language: transcribeEvent.language)
   }
 
   private func handleAudioStart(_ message: WyomingMessage) {
@@ -574,30 +563,40 @@ class ConnectionHandler {
       return
     }
 
-    audioSampleRate = audioStartEvent.format.rate
-    audioWidth = audioStartEvent.format.width
-    audioChannels = audioStartEvent.format.channels
-    wyomingServerLogger.debug(
-      "audio-start: sample rate: \(audioSampleRate) Hz, width: \(audioWidth), channels: \(audioChannels)")
+    // Use new state machine
+    sttState.updateAudioFormat(
+      sampleRate: audioStartEvent.format.rate,
+      channels: audioStartEvent.format.channels,
+      width: audioStartEvent.format.width
+    )
+    if let context = sttState.context {
+      wyomingServerLogger.debug(
+        "audio-start: sample rate: \(context.sampleRate) Hz, width: \(context.width), channels: \(context.channels)")
+    }
   }
 
   private func handleAudioChunk(_ message: WyomingMessage) {
     wyomingServerLogger.debug("handleAudioChunk called")
 
-    guard isTranscribing else { return }
+    // Check state using new state machine
+    guard sttState.isCollecting else { return }
 
     guard let audioChunkEvent = parseEvent(message, as: AudioChunkEvent.self) else {
       return
     }
 
-    audioBuffer.append(audioChunkEvent.audio)
-    wyomingServerLogger.debug("audio-chunk: \(audioChunkEvent.audio.count) bytes, total: \(audioBuffer.count) bytes")
+    sttState.appendAudio(audioChunkEvent.audio)
+
+    if let context = sttState.context {
+      wyomingServerLogger.debug("audio-chunk: \(audioChunkEvent.audio.count) bytes, total: \(context.buffer.count) bytes")
+    }
   }
 
   private func handleAudioStop(_ message: WyomingMessage) {
     wyomingServerLogger.debug("handleAudioStop called")
 
-    guard isTranscribing else { return }
+    // Check state using new state machine
+    guard sttState.isCollecting else { return }
 
     if let audioStopEvent = parseEvent(message, as: AudioStopEvent.self),
       let timestamp = audioStopEvent.timestamp
@@ -605,19 +604,26 @@ class ConnectionHandler {
       wyomingServerLogger.debug("audio-stop: timestamp: \(timestamp) ms")
     }
 
-    isTranscribing = false
+    // Capture context before resetting
+    guard let context = sttState.context else { return }
+    let audioData = context.buffer
+    let language = context.language
+    let sampleRate = context.sampleRate
+    let channels = context.channels
 
-    wyomingServerLogger.debug("Starting transcription with \(audioBuffer.count) bytes of audio")
+    sttState.reset()
+
+    wyomingServerLogger.debug("Starting transcription with \(audioData.count) bytes of audio")
 
     Task {
       do {
-        sendTranscriptStart(language: transcribeLanguage)
+        sendTranscriptStart(language: language)
 
         let text = try await sttService.transcribe(
-          audioData: audioBuffer,
-          sampleRate: audioSampleRate,
-          channels: audioChannels,
-          language: transcribeLanguage,
+          audioData: audioData,
+          sampleRate: sampleRate,
+          channels: channels,
+          language: language,
           onPartialResult: { [weak self] partialText in
             self?.sendTranscriptChunk(partialText)
           }
@@ -665,10 +671,10 @@ class ConnectionHandler {
   }
 
   private func sendAudioChunk(_ audioData: Data, format: AudioFormat) {
-    if isSynthesizingStreaming && !hasStartedAudioStream {
+    if ttsState.isStreaming, let context = ttsState.context, !context.audioStreamStarted {
       let startMessage = AudioStartEvent(format: format, timestamp: nil).toMessage()
       sendMessage(startMessage)
-      hasStartedAudioStream = true
+      ttsState.markAudioStreamStarted(format: format)
       wyomingServerLogger.debug("Audio start sent (streaming)")
     }
 
