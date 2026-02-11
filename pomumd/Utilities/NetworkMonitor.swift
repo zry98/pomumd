@@ -101,10 +101,11 @@ class NetworkMonitor: ObservableObject {
         // IPv6
         let addr = interface.ifa_addr.withMemoryRebound(to: sockaddr_in6.self, capacity: 1) { $0.pointee }
 
-        // skip link-local (fe80::/10)
         let firstByte = addr.sin6_addr.__u6_addr.__u6_addr8.0
         let secondByte = addr.sin6_addr.__u6_addr.__u6_addr8.1
-        if firstByte == 0xFE && (secondByte & 0xC0) == 0x80 {
+
+        // skip link-local (fe80::/10), ULA (fd00::/8)
+        if (firstByte == 0xFE && (secondByte & 0xC0) == 0x80) || firstByte == 0xFD {
           continue
         }
 
