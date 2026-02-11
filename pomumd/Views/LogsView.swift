@@ -55,7 +55,7 @@ struct LogsView: View {
           }
         }
         .listStyle(.plain)
-        .onChange(of: filteredLogs.count) {
+        .onChange(of: filteredLogs.count) { _ in
           if autoScroll, let lastLog = filteredLogs.last {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
               withAnimation {
@@ -69,10 +69,10 @@ struct LogsView: View {
     .navigationTitle("Logs")
     .inlineNavigationBarTitle()
     .searchable(text: $searchText, prompt: "Search")
-    .onChange(of: searchText) {
+    .onChange(of: searchText) { _ in
       updateFilteredLogs()
     }
-    .onChange(of: minimumLevel) {
+    .onChange(of: minimumLevel) { _ in
       updateFilteredLogs()
     }
     .toolbar {
@@ -107,13 +107,13 @@ struct LogsView: View {
     .onDisappear {
       logManager.stopMonitoring()
     }
-    .onChange(of: logManager.logs) {
+    .onChange(of: logManager.logs) { _ in
       updateFilteredLogs()
     }
-    .onChange(of: searchText) {
+    .onChange(of: searchText) { _ in
       updateFilteredLogs()
     }
-    .onChange(of: minimumLevel) {
+    .onChange(of: minimumLevel) { _ in
       updateFilteredLogs()
     }
   }

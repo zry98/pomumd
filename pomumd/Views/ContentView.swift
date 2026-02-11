@@ -85,38 +85,40 @@ struct ContentView: View {
             }
           }
 
-          Section("LLM Service") {
-            HStack {
-              Text("Status")
-              Spacer()
-              Text(serverManager.llmService.isModelLoaded ? "Ready" : "Not Loaded")
-                .foregroundColor(serverManager.llmService.isModelLoaded ? .green : .gray)
-            }
-
-            if let model = serverManager.llmService.currentModelName {
+          #if !LITE
+            Section("LLM Service") {
               HStack {
-                Text("Model")
+                Text("Status")
                 Spacer()
-                Text(model)
-                  .foregroundColor(.secondary)
+                Text(serverManager.llmService.isModelLoaded ? "Ready" : "Not Loaded")
+                  .foregroundColor(serverManager.llmService.isModelLoaded ? .green : .gray)
+              }
+
+              if let model = serverManager.llmService.currentModelName {
+                HStack {
+                  Text("Model")
+                  Spacer()
+                  Text(model)
+                    .foregroundColor(.secondary)
+                }
+              }
+
+              NavigationLink(
+                destination: LLMModelsListView(
+                  settingsManager: settingsManager,
+                  llmService: serverManager.llmService
+                )
+              ) {
+                Text("Models")
+              }
+
+              NavigationLink(
+                destination: LLMAdditionalContextView(settingsManager: settingsManager)
+              ) {
+                Text("Additional Context")
               }
             }
-
-            NavigationLink(
-              destination: LLMModelsListView(
-                settingsManager: settingsManager,
-                llmService: serverManager.llmService
-              )
-            ) {
-              Text("Models")
-            }
-
-            NavigationLink(
-              destination: LLMAdditionalContextView(settingsManager: settingsManager)
-            ) {
-              Text("Additional Context")
-            }
-          }
+          #endif
 
           Section {
             if networkMonitor.interfaces.isEmpty {

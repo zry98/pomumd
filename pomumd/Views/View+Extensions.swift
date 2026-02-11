@@ -1,4 +1,4 @@
-// Cross-platform UI extensions for iOS and macOS compatibility
+/// Cross-platform UI extensions for iOS and macOS compatibility.
 
 import SwiftUI
 
@@ -23,23 +23,25 @@ extension ToolbarItemPlacement {
   }
 }
 
-extension View {
-  @ViewBuilder
-  func navigationBarItems<Leading: View, Trailing: View>(
-    leading: Leading,
-    trailing: Trailing
-  ) -> some View {
-    #if os(iOS)
-      self.navigationBarItems(leading: leading, trailing: trailing)
-    #else
-      self.toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          leading
+#if !LITE
+  extension View {
+    @ViewBuilder
+    func navigationBarItems<Leading: View, Trailing: View>(
+      leading: Leading,
+      trailing: Trailing
+    ) -> some View {
+      #if os(iOS)
+        self.navigationBarItems(leading: leading, trailing: trailing)
+      #else
+        self.toolbar {
+          ToolbarItem(placement: .cancellationAction) {
+            leading
+          }
+          ToolbarItem(placement: .confirmationAction) {
+            trailing
+          }
         }
-        ToolbarItem(placement: .confirmationAction) {
-          trailing
-        }
-      }
-    #endif
+      #endif
+    }
   }
-}
+#endif

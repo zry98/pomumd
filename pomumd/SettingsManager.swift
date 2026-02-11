@@ -19,11 +19,13 @@ class SettingsManager: ObservableObject {
   static let userDefaultsKeyDefaultTTSPrefersAssistiveTechnologySettings =
     "defaultTTSPrefersAssistiveTechnologySettings"
   static let userDefaultsKeyDefaultSTTLanguage = "defaultSTTLanguage"
-  static let userDefaultsKeyDefaultLLMModel = "defaultLLMModel"
-  static let userDefaultsKeyDefaultLLMTemperature = "defaultLLMTemperature"
-  static let userDefaultsKeyDefaultLLMMaxTokens = "defaultLLMMaxTokens"
-  static let userDefaultsKeyDefaultLLMTopP = "defaultLLMTopP"
-  static let userDefaultsKeyDefaultLLMAdditionalContext = "defaultLLMAdditionalContext"
+  #if !LITE
+    static let userDefaultsKeyDefaultLLMModel = "defaultLLMModel"
+    static let userDefaultsKeyDefaultLLMTemperature = "defaultLLMTemperature"
+    static let userDefaultsKeyDefaultLLMMaxTokens = "defaultLLMMaxTokens"
+    static let userDefaultsKeyDefaultLLMTopP = "defaultLLMTopP"
+    static let userDefaultsKeyDefaultLLMAdditionalContext = "defaultLLMAdditionalContext"
+  #endif
 
   // MARK: - Published Properties
 
@@ -71,37 +73,39 @@ class SettingsManager: ObservableObject {
     }
   }
 
-  @Published var defaultLLMModel: String {
-    didSet {
-      UserDefaults.standard.set(defaultLLMModel, forKey: Self.userDefaultsKeyDefaultLLMModel)
-    }
-  }
-
-  @Published var defaultLLMTemperature: Float {
-    didSet {
-      UserDefaults.standard.set(defaultLLMTemperature, forKey: Self.userDefaultsKeyDefaultLLMTemperature)
-    }
-  }
-
-  @Published var defaultLLMMaxTokens: Int {
-    didSet {
-      UserDefaults.standard.set(defaultLLMMaxTokens, forKey: Self.userDefaultsKeyDefaultLLMMaxTokens)
-    }
-  }
-
-  @Published var defaultLLMTopP: Float {
-    didSet {
-      UserDefaults.standard.set(defaultLLMTopP, forKey: Self.userDefaultsKeyDefaultLLMTopP)
-    }
-  }
-
-  @Published var defaultLLMAdditionalContext: [LLMAdditionalContextItem] {
-    didSet {
-      if let encoded = try? JSONEncoder().encode(defaultLLMAdditionalContext) {
-        UserDefaults.standard.set(encoded, forKey: Self.userDefaultsKeyDefaultLLMAdditionalContext)
+  #if !LITE
+    @Published var defaultLLMModel: String {
+      didSet {
+        UserDefaults.standard.set(defaultLLMModel, forKey: Self.userDefaultsKeyDefaultLLMModel)
       }
     }
-  }
+
+    @Published var defaultLLMTemperature: Float {
+      didSet {
+        UserDefaults.standard.set(defaultLLMTemperature, forKey: Self.userDefaultsKeyDefaultLLMTemperature)
+      }
+    }
+
+    @Published var defaultLLMMaxTokens: Int {
+      didSet {
+        UserDefaults.standard.set(defaultLLMMaxTokens, forKey: Self.userDefaultsKeyDefaultLLMMaxTokens)
+      }
+    }
+
+    @Published var defaultLLMTopP: Float {
+      didSet {
+        UserDefaults.standard.set(defaultLLMTopP, forKey: Self.userDefaultsKeyDefaultLLMTopP)
+      }
+    }
+
+    @Published var defaultLLMAdditionalContext: [LLMAdditionalContextItem] {
+      didSet {
+        if let encoded = try? JSONEncoder().encode(defaultLLMAdditionalContext) {
+          UserDefaults.standard.set(encoded, forKey: Self.userDefaultsKeyDefaultLLMAdditionalContext)
+        }
+      }
+    }
+  #endif
 
   init() {
     // TTS settings
@@ -119,21 +123,23 @@ class SettingsManager: ObservableObject {
     // STT settings
     self.defaultSTTLanguage = UserDefaults.standard.string(forKey: Self.userDefaultsKeyDefaultSTTLanguage) ?? ""
 
-    // LLM settings
-    let llmTemperature = UserDefaults.standard.float(forKey: Self.userDefaultsKeyDefaultLLMTemperature)
-    let llmMaxTokens = UserDefaults.standard.integer(forKey: Self.userDefaultsKeyDefaultLLMMaxTokens)
-    let llmTopP = UserDefaults.standard.float(forKey: Self.userDefaultsKeyDefaultLLMTopP)
-    self.defaultLLMModel = UserDefaults.standard.string(forKey: Self.userDefaultsKeyDefaultLLMModel) ?? "qwen3-4b"
-    self.defaultLLMTemperature = llmTemperature == 0.0 ? 0.7 : llmTemperature
-    self.defaultLLMMaxTokens = llmMaxTokens == 0 ? 512 : llmMaxTokens
-    self.defaultLLMTopP = llmTopP == 0.0 ? 1.0 : llmTopP
-    if let data = UserDefaults.standard.data(forKey: Self.userDefaultsKeyDefaultLLMAdditionalContext),
-      let decoded = try? JSONDecoder().decode([LLMAdditionalContextItem].self, from: data)
-    {
-      self.defaultLLMAdditionalContext = decoded
-    } else {
-      self.defaultLLMAdditionalContext = []
-    }
+    #if !LITE
+      // LLM settings
+      let llmTemperature = UserDefaults.standard.float(forKey: Self.userDefaultsKeyDefaultLLMTemperature)
+      let llmMaxTokens = UserDefaults.standard.integer(forKey: Self.userDefaultsKeyDefaultLLMMaxTokens)
+      let llmTopP = UserDefaults.standard.float(forKey: Self.userDefaultsKeyDefaultLLMTopP)
+      self.defaultLLMModel = UserDefaults.standard.string(forKey: Self.userDefaultsKeyDefaultLLMModel) ?? "mlx-community/Qwen3-8B-4bit"
+      self.defaultLLMTemperature = llmTemperature == 0.0 ? 0.7 : llmTemperature
+      self.defaultLLMMaxTokens = llmMaxTokens == 0 ? 512 : llmMaxTokens
+      self.defaultLLMTopP = llmTopP == 0.0 ? 1.0 : llmTopP
+      if let data = UserDefaults.standard.data(forKey: Self.userDefaultsKeyDefaultLLMAdditionalContext),
+        let decoded = try? JSONDecoder().decode([LLMAdditionalContextItem].self, from: data)
+      {
+        self.defaultLLMAdditionalContext = decoded
+      } else {
+        self.defaultLLMAdditionalContext = []
+      }
+    #endif
   }
 
   // MARK: - Settings Management
@@ -174,16 +180,18 @@ class SettingsManager: ObservableObject {
     }
   }
 
-  /// Validates that an LLM model exists in the available models list.
-  func validateLLMModel(_ modelID: String, availableModels: [String]) throws {
-    guard !modelID.isEmpty else {
-      throw SettingsError.invalidModel("Model ID cannot be empty")
-    }
+  #if !LITE
+    /// Validates that an LLM model exists in the available models list.
+    func validateLLMModel(_ modelID: String, availableModels: [String]) throws {
+      guard !modelID.isEmpty else {
+        throw SettingsError.invalidModel("Model ID cannot be empty")
+      }
 
-    guard availableModels.contains(modelID) else {
-      throw SettingsError.invalidModel("Model '\(modelID)' not found")
+      guard availableModels.contains(modelID) else {
+        throw SettingsError.invalidModel("Model '\(modelID)' not found")
+      }
     }
-  }
+  #endif
 
   // MARK: - Serialization
 
@@ -196,26 +204,40 @@ class SettingsManager: ObservableObject {
     let defaultTTSPause: Float?
     let defaultTTSPrefersAssistiveTechnologySettings: Bool?
     let defaultSTTLanguage: String?
-    let defaultLLMModel: String?
-    let defaultLLMTemperature: Float?
-    let defaultLLMMaxTokens: Int?
-    let defaultLLMTopP: Float?
+    #if !LITE
+      let defaultLLMModel: String?
+      let defaultLLMTemperature: Float?
+      let defaultLLMMaxTokens: Int?
+      let defaultLLMTopP: Float?
+    #endif
   }
 
   func toSettings() -> Settings {
-    return Settings(
-      defaultTTSSynthesisTimeout: defaultTTSSynthesisTimeout,
-      defaultTTSVoice: defaultTTSVoice,
-      defaultTTSRate: defaultTTSRate,
-      defaultTTSPitch: defaultTTSPitch,
-      defaultTTSPause: defaultTTSPause,
-      defaultTTSPrefersAssistiveTechnologySettings: defaultTTSPrefersAssistiveTechnologySettings,
-      defaultSTTLanguage: defaultSTTLanguage,
-      defaultLLMModel: defaultLLMModel,
-      defaultLLMTemperature: defaultLLMTemperature,
-      defaultLLMMaxTokens: defaultLLMMaxTokens,
-      defaultLLMTopP: defaultLLMTopP
-    )
+    #if !LITE
+      return Settings(
+        defaultTTSSynthesisTimeout: defaultTTSSynthesisTimeout,
+        defaultTTSVoice: defaultTTSVoice,
+        defaultTTSRate: defaultTTSRate,
+        defaultTTSPitch: defaultTTSPitch,
+        defaultTTSPause: defaultTTSPause,
+        defaultTTSPrefersAssistiveTechnologySettings: defaultTTSPrefersAssistiveTechnologySettings,
+        defaultSTTLanguage: defaultSTTLanguage,
+        defaultLLMModel: defaultLLMModel,
+        defaultLLMTemperature: defaultLLMTemperature,
+        defaultLLMMaxTokens: defaultLLMMaxTokens,
+        defaultLLMTopP: defaultLLMTopP
+      )
+    #else
+      return Settings(
+        defaultTTSSynthesisTimeout: defaultTTSSynthesisTimeout,
+        defaultTTSVoice: defaultTTSVoice,
+        defaultTTSRate: defaultTTSRate,
+        defaultTTSPitch: defaultTTSPitch,
+        defaultTTSPause: defaultTTSPause,
+        defaultTTSPrefersAssistiveTechnologySettings: defaultTTSPrefersAssistiveTechnologySettings,
+        defaultSTTLanguage: defaultSTTLanguage
+      )
+    #endif
   }
 
   /// Updates settings from HTTP API request.
@@ -236,25 +258,31 @@ class SettingsManager: ObservableObject {
     }
 
     if let lang = settings.defaultSTTLanguage { self.defaultSTTLanguage = lang }
-
-    if let model = settings.defaultLLMModel { self.defaultLLMModel = model }
-    if let temperature = settings.defaultLLMTemperature { self.defaultLLMTemperature = temperature }
-    if let maxTokens = settings.defaultLLMMaxTokens { self.defaultLLMMaxTokens = maxTokens }
-    if let topP = settings.defaultLLMTopP { self.defaultLLMTopP = topP }
+    #if !LITE
+      if let model = settings.defaultLLMModel { self.defaultLLMModel = model }
+      if let temperature = settings.defaultLLMTemperature { self.defaultLLMTemperature = temperature }
+      if let maxTokens = settings.defaultLLMMaxTokens { self.defaultLLMMaxTokens = maxTokens }
+      if let topP = settings.defaultLLMTopP { self.defaultLLMTopP = topP }
+    #endif
   }
 }
 
 enum SettingsError: Error, LocalizedError {
   case invalidVoice(String)
   case invalidLanguage(String)
-  case invalidModel(String)
+  #if !LITE
+    case invalidModel(String)
+  #endif
 
   var errorDescription: String? {
     switch self {
     case .invalidVoice(let msg),
-      .invalidLanguage(let msg),
-      .invalidModel(let msg):
+      .invalidLanguage(let msg):
       return msg
+    #if !LITE
+      case .invalidModel(let msg):
+        return msg
+    #endif
     }
   }
 }

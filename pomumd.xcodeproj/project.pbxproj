@@ -10,16 +10,33 @@
 		403134802F3B8B3D00BEE73A /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 4031347F2F3B8B3D00BEE73A /* MLXLLM */; };
 		403134822F3B8B3D00BEE73A /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 403134812F3B8B3D00BEE73A /* MLXLMCommon */; };
 		403134842F3B8B3D00BEE73A /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 403134832F3B8B3D00BEE73A /* MLXVLM */; };
+		403136BD2F3CCBAA00BEE73A /* Metrics in Frameworks */ = {isa = PBXBuildFile; productRef = 403136B02F3CCBAA00BEE73A /* Metrics */; };
+		403136BE2F3CCBAA00BEE73A /* Prometheus in Frameworks */ = {isa = PBXBuildFile; productRef = 403136B22F3CCBAA00BEE73A /* Prometheus */; };
+		403136BF2F3CCBAA00BEE73A /* Telegraph in Frameworks */ = {isa = PBXBuildFile; productRef = 403136AE2F3CCBAA00BEE73A /* Telegraph */; };
 		40B63E3D2F34364F00E79A1C /* Telegraph in Frameworks */ = {isa = PBXBuildFile; productRef = 40B63E3C2F34364F00E79A1C /* Telegraph */; };
 		40B63E402F34365700E79A1C /* Metrics in Frameworks */ = {isa = PBXBuildFile; productRef = 40B63E3F2F34365700E79A1C /* Metrics */; };
 		40B63E432F34365C00E79A1C /* Prometheus in Frameworks */ = {isa = PBXBuildFile; productRef = 40B63E422F34365C00E79A1C /* Prometheus */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		403136C42F3CCBAA00BEE73A /* pomumd-lite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "pomumd-lite.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		403FEF392F3286A3002440FE /* pomumd.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pomumd.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		403136C52F3CCBAA00BEE73A /* Exceptions for "pomumd" folder in "pomumd-lite" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Assets.xcassets,
+				Info.plist,
+				Models/LLMAdditionalContextItem.swift,
+				Models/LLMModels.swift,
+				Services/LLMService.swift,
+				Views/LLMAdditionalContextView.swift,
+				Views/LLMModelsListView.swift,
+			);
+			target = 403136AD2F3CCBAA00BEE73A /* pomumd-lite */;
+		};
 		40B63EF52F35462600E79A1C /* Exceptions for "pomumd" folder in "pomumd" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -34,6 +51,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				40B63EF52F35462600E79A1C /* Exceptions for "pomumd" folder in "pomumd" target */,
+				403136C52F3CCBAA00BEE73A /* Exceptions for "pomumd" folder in "pomumd-lite" target */,
 			);
 			path = pomumd;
 			sourceTree = "<group>";
@@ -41,6 +59,16 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		403136B92F3CCBAA00BEE73A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				403136BD2F3CCBAA00BEE73A /* Metrics in Frameworks */,
+				403136BE2F3CCBAA00BEE73A /* Prometheus in Frameworks */,
+				403136BF2F3CCBAA00BEE73A /* Telegraph in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		403FEF362F3286A3002440FE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -69,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				403FEF392F3286A3002440FE /* pomumd.app */,
+				403136C42F3CCBAA00BEE73A /* pomumd-lite.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,6 +105,34 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		403136AD2F3CCBAA00BEE73A /* pomumd-lite */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 403136C12F3CCBAA00BEE73A /* Build configuration list for PBXNativeTarget "pomumd-lite" */;
+			buildPhases = (
+				403136B82F3CCBAA00BEE73A /* Sources */,
+				403136B92F3CCBAA00BEE73A /* Frameworks */,
+				403136C02F3CCBAA00BEE73A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				403FEF3B2F3286A3002440FE /* pomumd */,
+			);
+			name = "pomumd-lite";
+			packageProductDependencies = (
+				403136AE2F3CCBAA00BEE73A /* Telegraph */,
+				403136B02F3CCBAA00BEE73A /* Metrics */,
+				403136B22F3CCBAA00BEE73A /* Prometheus */,
+				403136B42F3CCBAA00BEE73A /* MLXLLM */,
+				403136B62F3CCBAA00BEE73A /* MLXLMCommon */,
+				403136B72F3CCBAA00BEE73A /* MLXVLM */,
+			);
+			productName = pomumd;
+			productReference = 403136C42F3CCBAA00BEE73A /* pomumd-lite.app */;
+			productType = "com.apple.product-type.application";
+		};
 		403FEF382F3286A3002440FE /* pomumd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 403FEF442F3286A4002440FE /* Build configuration list for PBXNativeTarget "pomumd" */;
@@ -140,11 +197,19 @@
 			projectRoot = "";
 			targets = (
 				403FEF382F3286A3002440FE /* pomumd */,
+				403136AD2F3CCBAA00BEE73A /* pomumd-lite */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		403136C02F3CCBAA00BEE73A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		403FEF372F3286A3002440FE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -155,6 +220,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		403136B82F3CCBAA00BEE73A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		403FEF352F3286A3002440FE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -165,6 +237,132 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		403136C22F3CCBAA00BEE73A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8NVNZLAB7A;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = pomumd/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "PomumD Lite";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app provides TTS and STT services over the local network using the Wyoming protocol.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app uses speech recognition to transcribe audio for the STT service.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.zry.pomumd-lite";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[arch=*]" = LITE;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				XROS_DEPLOYMENT_TARGET = 1.0;
+			};
+			name = Debug;
+		};
+		403136C32F3CCBAA00BEE73A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8NVNZLAB7A;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = pomumd/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "PomumD Lite";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app provides TTS and STT services over the local network using the Wyoming protocol.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app uses speech recognition to transcribe audio for the STT service.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.zry.pomumd-lite";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[arch=*]" = LITE;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				XROS_DEPLOYMENT_TARGET = 1.0;
+			};
+			name = Release;
+		};
 		403FEF422F3286A4002440FE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -404,6 +602,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		403136C12F3CCBAA00BEE73A /* Build configuration list for PBXNativeTarget "pomumd-lite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				403136C22F3CCBAA00BEE73A /* Debug */,
+				403136C32F3CCBAA00BEE73A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		403FEF342F3286A3002440FE /* Build configuration list for PBXProject "pomumd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -426,6 +633,38 @@
 
 /* Begin XCRemoteSwiftPackageReference section */
 		4031347E2F3B8B3D00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.30.3;
+			};
+		};
+		403136AF2F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "Telegraph" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Building42/Telegraph.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.40.0;
+			};
+		};
+		403136B12F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "swift-metrics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-metrics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.1;
+			};
+		};
+		403136B32F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "swift-prometheus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swift-server/swift-prometheus.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.0;
+			};
+		};
+		403136B52F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
 			requirement = {
@@ -473,6 +712,36 @@
 		403134832F3B8B3D00BEE73A /* MLXVLM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4031347E2F3B8B3D00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXVLM;
+		};
+		403136AE2F3CCBAA00BEE73A /* Telegraph */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136AF2F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "Telegraph" */;
+			productName = Telegraph;
+		};
+		403136B02F3CCBAA00BEE73A /* Metrics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136B12F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "swift-metrics" */;
+			productName = Metrics;
+		};
+		403136B22F3CCBAA00BEE73A /* Prometheus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136B32F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "swift-prometheus" */;
+			productName = Prometheus;
+		};
+		403136B42F3CCBAA00BEE73A /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136B52F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLLM;
+		};
+		403136B62F3CCBAA00BEE73A /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136B52F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLMCommon;
+		};
+		403136B72F3CCBAA00BEE73A /* MLXVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 403136B52F3CCBAA00BEE73A /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXVLM;
 		};
 		40B63E3C2F34364F00E79A1C /* Telegraph */ = {

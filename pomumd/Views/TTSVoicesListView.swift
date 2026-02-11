@@ -116,7 +116,7 @@ struct TTSVoicesListView: View {
       voices = TTSService.getAvailableVoices()
       updateSortedVoices()
     }
-    .onChange(of: voices) {
+    .onChange(of: voices) { _ in
       updateSortedVoices()
     }
   }
