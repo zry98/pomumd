@@ -290,33 +290,30 @@ struct HardwareMetrics {
   private static func getMemoryInfo() -> (total: UInt64, appUsed: UInt64, free: UInt64) {
     let total = ProcessInfo.processInfo.physicalMemory
 
-    // system
-    var statsCount = mach_msg_type_number_t(
-      MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
-    var stats = vm_statistics64()
-    let kr = withUnsafeMutablePointer(to: &stats) { ptr -> kern_return_t in
-      ptr.withMemoryRebound(to: integer_t.self, capacity: Int(statsCount)) { intPtr in
-        host_statistics64(mach_host_self(), HOST_VM_INFO64, intPtr, &statsCount)
+    #if os(iOS)
+      let free = UInt64(os_proc_available_memory())
+    #else
+      var statsCount = mach_msg_type_number_t(
+        MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+      var stats = vm_statistics64()
+      let kr = withUnsafeMutablePointer(to: &stats) { ptr -> kern_return_t in
+        ptr.withMemoryRebound(to: integer_t.self, capacity: Int(statsCount)) { intPtr in
+          host_statistics64(mach_host_self(), HOST_VM_INFO64, intPtr, &statsCount)
+        }
       }
-    }
-    guard kr == KERN_SUCCESS else {
-      metricsLogger.error("Failed to get system memory usage: ret=\(kr)")
-      return (total: total, appUsed: 0, free: total)
-    }
 
-    let pageSize = UInt64(Darwin.vm_kernel_page_size)
-    let active = UInt64(stats.active_count) * pageSize
-    let speculative = UInt64(stats.speculative_count) * pageSize
-    let inactive = UInt64(stats.inactive_count) * pageSize
-    let wired = UInt64(stats.wire_count) * pageSize
-    let compressed = UInt64(stats.compressor_page_count) * pageSize
-    let purgeable = UInt64(stats.purgeable_count) * pageSize
-    let external = UInt64(stats.external_page_count) * pageSize
+      let free: UInt64
+      if kr == KERN_SUCCESS {
+        let pageSize = UInt64(Darwin.vm_kernel_page_size)
+        let freePages = UInt64(stats.free_count)
+        let inactivePages = UInt64(stats.inactive_count)
+        free = (freePages + inactivePages) * pageSize
+      } else {
+        metricsLogger.error("Failed to get system memory stats: ret=\(kr)")
+        free = 0
+      }
+    #endif
 
-    let used = active + inactive + speculative + wired + compressed - purgeable - external
-    let free = total - used
-
-    // app
     var infoCount = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.stride / MemoryLayout<integer_t>.stride)
     var info = task_vm_info()
     let kr2 = withUnsafeMutablePointer(to: &info) { ptr -> kern_return_t in
